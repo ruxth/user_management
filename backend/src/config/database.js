@@ -1,20 +1,32 @@
 const mysql = require("mysql2");
+const dotenv = require("dotenv");
 
-const connection = mysql.createConnection({
-  host: "localhost",
-  user: "root",
-  password: "password",
-  database: "tms",
+dotenv.config();
+
+const pool = mysql.createPool({
+  host: process.env.host,
+  user: process.env.user,
+  password: process.env.password,
+  database: process.env.database,
+  waitForConnections: true,
+  connectionLimit: 100,
+  debug: false,
 });
 
-const mysqlconnection = () => {
-  return connection.connect((err) => {
+pool.query("SELECT * FROM accounts", (err, accounts) => {
+  if (err) {
+    console.error(err);
+    return;
+  }
+
+  pool.query("SELECT * FROM usergroup", (err, usergroup) => {
     if (err) {
-      console.error("Error connecting to MySQL database:", error);
+      console.err(err);
+      return;
     } else {
-      console.log("Connected to MySQL database!");
+      return;
     }
   });
-};
+});
 
-module.exports = { connection, mysqlconnection };
+module.exports = pool.promise();

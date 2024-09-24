@@ -1,11 +1,17 @@
 <script>
     import { createEventDispatcher } from 'svelte';
+    import axios from '../lib/axios-config'; 
+    import { goto } from '$app/navigation';
+    import {accessError, customSuccess} from '../utils/handleError'
+    import Layout from '../routes/+layout.svelte';
 
     export let username = '';
+    export let appAcronym = '';
     export let email = '';
+    export let isAdmin = false;
     let showPopup = false;
     let newEmail = '';
-    let newPassword = '';     
+    let newPassword = '';    
 
     const togglePopup = () => {
         showPopup = !showPopup;
@@ -17,21 +23,39 @@
 
         newEmail = '';
         newPassword = '';
+        togglePopup()
     };
 
     const dispatch = createEventDispatcher();
+
+    const handleLogout = async () => {
+    try {
+        await axios.post('http://localhost:3000/api/logout', {}, { withCredentials: true });        
+        customSuccess("Logout Successfully");
+        goto('/login');
+    } catch (error) {
+        console.error("Error during logout:", error);
+    }
+};
 </script>
 
 <nav class="navbar">
     <div class="navbar-left">
-      <span>{username}</span>
+        {#if appAcronym.length > 0}
+            <span>{appAcronym}</span>
+        {:else}
+            <span>{username}</span>
+        {/if}
     </div>
     <div class="navbar-center">
       <a href="/applications">Applications</a>
-      <a href="/user_management">User Management</a>
+      {#if isAdmin}
+            <a href="/user_management">User Management</a>
+        {/if}
     </div>
     <div class="navbar-right">
       <button class="edit-profile-btn" on:click={togglePopup}>Edit Profile</button>
+      <button class="edit-profile-btn" on:click={handleLogout}>Logout</button>
     </div>
   </nav>
 
@@ -43,10 +67,10 @@
                 <span class="info-label">Username:</span>
                 <span class="info-value">{username}</span>
               </div>
-            <div class="info-row">
+            <!-- <div class="info-row">
                 <span class="info-label">Current email:</span>
                 <span class="info-value">{email}</span>
-              </div>
+              </div> -->
             <label>
                 <span class="info-label">New Email:</span>
                 <input class="info-value" type="email" bind:value={newEmail} placeholder="Email" />
@@ -56,8 +80,8 @@
                 <input class="info-value" type="password" bind:value={newPassword} placeholder="Password"/>
             </label>
             <div class="button-container">
-                <button on:click={handleSave}>Save</button>
-                <button on:click={togglePopup}>Cancel</button>
+                <button class="action2-btn" on:click={handleSave}>Save</button>
+                <button class="action2-btn" on:click={togglePopup}>Cancel</button>
             </div>
         </div>
     </div>
@@ -72,6 +96,7 @@
     background-color: black;
     color: white;
     padding: 10px 20px;
+    height: 40px;
 }
 
 .navbar-left, .navbar-center, .navbar-right {
@@ -90,15 +115,12 @@
 }
 
 .edit-profile-btn {
-    background-color: #555;
     border: none;
+    background-color: black;
     color: white;
     padding: 5px 10px;
     cursor: pointer;
-}
-
-.edit-profile-btn:hover {
-    background-color: #777;
+    text-decoration: underline;
 }
 
 .popup-overlay {
@@ -162,5 +184,13 @@
     justify-content: center;
     margin-top: 20px;
 }
+
+.action2-btn {
+    background-color: black;
+    color: white;
+    padding: 8px 12px;
+    border: none;
+    cursor: pointer;
+  }
 
 </style>

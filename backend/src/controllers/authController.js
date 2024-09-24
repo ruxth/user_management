@@ -1,77 +1,111 @@
-const { connection } = require("../config/database");
+const db = require("../config/database");
 const catchAsyncErrors = require("../middleware/catchAsyncErrors");
 const jwt = require("jsonwebtoken");
-const bcrypt = require("bcrypt");
+const bcrypt = require("bcryptjs");
+const dotenv = require("dotenv");
 
-const JWT_SECRET = "DS8W284729EDHWQ29D9CWD82DX";
+dotenv.config();
 
 exports.authenticateUser = catchAsyncErrors(async (req, res, next) => {
   const { username, password } = req.body;
 
+  const ipAddress =
+    req.ip || req.header["x-forwarded-for"] || req.db.remoteAddress;
+  const browserType = req.headers["user-agent"];
+
   if (username && password) {
-    connection.query(
-      "SELECT * FROM accounts WHERE username = ?",
-      [username],
-      (error, results) => {
-        if (error) throw error;
+    try {
+      const [rows] = await db.query(
+        "SELECT * FROM accounts WHERE LOWER(username) = LOWER(?)",
+        [username]
+      );
+      if (rows.length > 0) {
+        const user = rows[0];
 
-        if (results.length > 0) {
-          const user = results[0];
+        bcrypt.compare(password, user.password, (err, isMatch) => {
+          if (err) {
+            return res
+              .status(500)
+              .json({ message: "Error comparing passwords!" });
+          }
 
-          bcrypt.compare(password, user.password, (err, isMatch) => {
-            if (err) {
-              return res
-                .status(500)
-                .json({ message: "Error comparing passwords!" });
+          if (isMatch) {
+            if (user.isActive !== "active") {
+              return res.status(400).json({ message: "Disabled user!" });
             }
 
-            if (isMatch) {
-              if (user.isActive !== "active") {
-                return res.status(400).json({ message: "Disabled user!" });
-              }
+            const token = jwt.sign(
+              {
+                id: user.username,
+                ip: ipAddress,
+                browser: browserType,
+              },
+              process.env.JWT_SECRET,
+              { expiresIn: "1h" }
+            );
 
-              const token = jwt.sign({ username }, JWT_SECRET, {
-                expiresIn: "1h",
-              });
+            res.cookie("token", token, {
+              httpOnly: true,
+              sameSite: "Strict",
+              maxAge: 3600000,
+            });
 
-              res.json({
-                message: "Login successful!",
-                token: token,
-              });
-            } else {
-              res.status(400).json({ message: "Invalid credentials!" });
-            }
-          });
-        } else {
-          res.status(400).json({ message: "Invalid credentials!" });
-        }
+            res.json({
+              message: "Login successful!",
+              token: token,
+            });
+          } else {
+            res.status(400).json({ message: "Invalid credentials!" });
+          }
+        });
+      } else {
+        res.status(400).json({ message: "Invalid credentials!" });
       }
-    );
+    } catch (error) {
+      console.log(`error here :${error}`);
+    }
   } else {
     res.status(401).json({ message: "Please enter Username and Password!" });
   }
 });
 
 exports.userInfo = catchAsyncErrors(async (req, res, next) => {
-  const username = req.username;
+  const token = req.cookies.token;
+  if (!token) {
+    return res.status(401).json({ message: "Access denied" });
+  }
+  const decoded = jwt.verify(token, process.env.JWT_SECRET);
+  req.user = decoded;
+  username = req.user.id;
 
-  connection.query(
-    "SELECT * FROM accounts WHERE username = ?",
-    [username],
-    (error, results) => {
-      if (error) {
-        return res.status(500).json({ message: "Database error!" });
-      }
+  const [rows] = await db.query("SELECT * FROM accounts WHERE username = ?", [
+    username,
+  ]);
 
-      if (results.length > 0) {
-        const user = results[0];
-        res.json({
-          username: user.username,
-          email: user.email,
-        });
-      } else {
-        res.status(404).json({ message: "User not found!" });
-      }
-    }
-  );
+  if (rows.length > 0) {
+    const user = rows[0];
+
+    const [usergroup] = await db.query(
+      "SELECT * FROM usergroup WHERE username = ? ",
+      [username]
+    );
+
+    res.json({
+      username: user.username,
+      email: user.email,
+      usergroup,
+    });
+  } else {
+    res.status(404).json({ message: "User not found!" });
+  }
+});
+
+exports.logoutUser = catchAsyncErrors(async (req, res, next) => {
+  res.clearCookie("token", {
+    httpOnly: true,
+    secure: false,
+    sameSite: "lax",
+    path: "/",
+  });
+  res.status(200).send("Logged out successfully");
 });

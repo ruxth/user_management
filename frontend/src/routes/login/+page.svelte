@@ -1,8 +1,9 @@
 <script>
-      // @ts-nocheck
+    // @ts-nocheck
     import { goto } from '$app/navigation';
-    import axios from '../../lib/axios-config'; 
-    
+    import axios from '../../lib/axios-config';
+    import {toast, Toaster} from 'svelte-sonner';
+    import {  } from "module";
 
     let username = '';
     let password = '';
@@ -12,23 +13,25 @@
         const response = await axios.post('http://localhost:3000/api/auth', {
         username,
         password
+        }, {
+            withCredentials: true
         });
 
-        const token = response.data.token;
-        document.cookie = `authToken=${token}; path=/; max-age=3600`; 
-        goto('/user_management');
+        goto('/applications');
+        toast.success('Login successful!');
         
     } catch (error) {
         if (error.response && error.response.data && error.response.data.message) {
-        console.error('Login error:', error.response.data.message); 
+            toast.error(error.response.data.message);
         } else {
-        console.error('An unknown error occurred:', error.message);
+            toast.error('An unknown error occurred.');
         }
     }
     };
 
     </script>
 
+    <body>
     <div class="login">
     <h1>Login</h1>
     <form on:submit|preventDefault={handleSubmit}>
@@ -51,6 +54,7 @@
         <input type="submit" value="Login" />
     </form>
     </div>
+</body>
 
     <style>
     * {
@@ -60,15 +64,14 @@
         sans-serif;
         font-size: 16px;
     }
-    
-    /* .body {
-        background-color: #435165;
-    } */
+
+    body {
+        margin: 0px;
+    }
     
     .login {
         width: 400px;
         background-color: #ffffff;
-        box-shadow: 0 0 9px 0 rgba(0, 0, 0, 0.3);
         margin: 100px auto;
     }
     
@@ -77,7 +80,6 @@
         color: #5b6574;
         font-size: 24px;
         padding: 20px 0;
-        border-bottom: 1px solid #dee0e4;
     }
     
     .login form {
@@ -92,16 +94,17 @@
     .login form input[type="text"] {
         width: 310px;
         height: 50px;
-        border: 1px solid #dee0e4;
+        border: none;
+        background-color: #c9c9c9;
         margin-bottom: 20px;
         padding: 0 15px;
     }
     
     .login form input[type="submit"] {
-        width: 100%;
+        width: 310px;
         padding: 15px;
         margin-top: 20px;
-        background-color: #3274d6;
+        background-color: black;
         border: 0;
         cursor: pointer;
         font-weight: bold;

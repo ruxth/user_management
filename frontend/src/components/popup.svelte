@@ -18,7 +18,7 @@
         </div>
         <div class="popup-close">
             <slot name="buttons">Default button content</slot>
-            <button on:click={closePopup}>Cancel</button>
+            <button class="action-btn" on:click={closePopup}>Cancel</button>
         </div>
       </div>
     </div>
@@ -35,13 +35,17 @@
       display: flex;
       justify-content: center;
       align-items: center;
+      overflow-y: scroll;
     }
   
     .popup {
-        background: white;
-        padding: 20px;
-        border-radius: 5px;
-        width: 500px;
+      position:fixed;
+      background: white;
+      padding: 20px;
+      border-radius: 5px;
+      max-width: 1000px;
+      max-height: 95vh;
+      overflow-y: scroll; 
     }
   
     .popup-header {
@@ -57,6 +61,15 @@
         cursor: pointer;
         margin-top: 30px;
     }
+
+    .action-btn {
+    background-color: black;
+    color: white;
+    padding: 8px 12px;
+    margin-left: 10px;
+    border: none;
+    cursor: pointer;
+  }
   
   </style>
   
