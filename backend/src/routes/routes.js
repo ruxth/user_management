@@ -2,6 +2,7 @@ const express = require("express");
 const {
   verifyToken,
   verifyTokenWithRoles,
+  verifyTokenWithPermit,
 } = require("../middleware/verifyToken");
 const {
   authenticateUser,
@@ -21,6 +22,12 @@ const {
   getAllApplications,
   getApplication,
   editApplication,
+  createPlan,
+  getPlans,
+  createTask,
+  getTasks,
+  editTask,
+  updateTask,
 } = require("../controllers/applicationController");
 
 const router = express.Router();
@@ -39,10 +46,24 @@ router.put("/editUser/:username", verifyTokenWithRoles(["Admin"]), editUser);
 router.get("/user_management", verifyTokenWithRoles(["Admin"]), userInfo);
 router.get("/applications", verifyToken, userInfo);
 
-router.post("/newApplication", verifyToken, addApplication);
-router.post("/editApplication", verifyToken, editApplication);
+router.post("/applications/app", verifyToken, getApplication);
+router.post("/newApplication", verifyTokenWithRoles(["PL"]), addApplication);
+router.post("/editApplication", verifyTokenWithRoles(["PL"]), editApplication);
+router.post(
+  "/applications/createPlan",
+  verifyTokenWithRoles(["PL"]),
+  createPlan
+);
+router.post(
+  "/applications/createTask",
+  verifyTokenWithRoles(["PL", "Admin"]),
+  createTask
+);
+router.post("/applications/editTask", verifyToken, editTask);
+router.post("/applications/updateTask", verifyTokenWithPermit(), updateTask);
 
 router.get("/getAllApplications", verifyToken, getAllApplications);
-router.get("/applications/:App_Acronym", verifyToken, getApplication);
+router.get("/applications/getPlans", verifyToken, getPlans);
+router.post("/applications/getTasks", verifyToken, getTasks);
 
 module.exports = router;

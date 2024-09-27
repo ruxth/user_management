@@ -10,9 +10,9 @@
   {#if show}
     <div class="popup-overlay" >
       <div class="popup" >
-        <h2 class="popup-header">
+        <h3 class="popup-header">
           <slot name="header">Default Header</slot>
-        </h2>
+        </h3>
         <div class="popup-body">
           <slot name="body">Default body content</slot>
         </div>
@@ -35,17 +35,16 @@
       display: flex;
       justify-content: center;
       align-items: center;
-      overflow-y: scroll;
+      overflow: auto;
     }
   
     .popup {
-      position:fixed;
       background: white;
-      padding: 20px;
+      padding: 10px 20px;
       border-radius: 5px;
-      max-width: 1000px;
+      max-width: 2000px;
       max-height: 95vh;
-      overflow-y: scroll; 
+      overflow: auto;
     }
   
     .popup-header {

@@ -8,11 +8,14 @@
     
 	const dispatch = createEventDispatcher();
 	$: dispatch('update', applicationData);
+	// send updates to its parent whenever relevant data changes
+	// Automatically re-run when any reactive dependency changes.
+	// will run whenever the value of applicationData changes.
 
 </script>
 
 <div class="form-container">
-	
+	<div class="form-flex">
 	<div class="info-row">
 		<label class="info-label" for="appAcronym">App Acronym:</label>
 		{#if isEditing}
@@ -44,9 +47,11 @@
 			/>
 		{/if}
 	</div>
+</div>
+</div>
 
 	<div class="info-row">
-		<div class="info-label">
+		<div class="info-label-description">
 			<label class="info-label" for="appDescription">App Description:</label>
 			<br />
 		</div>
@@ -58,6 +63,7 @@
 		/>
 	</div>
 
+	<div class="form-flex">
 	<div class="info-row">
 		<label class="info-label" for="startDate">Start Date:</label>
 		<input
@@ -77,9 +83,10 @@
 			bind:value={applicationData.App_endDate}
 		/>
 	</div>
+</div>
 
 	<div class="info-row">
-        <label class="info-label" for="appPermitCreate">App Permit Create:</label>
+        <label class="info-label-select" for="appPermitCreate">App Permit Create:</label>
         <div class="info-select">
             <select
                 class="input-value select-box" bind:value={applicationData.App_permit_Create}>
@@ -92,7 +99,7 @@
     </div>
 
     <div class="info-row">
-        <label class="info-label" for="appPermitOpen">App Permit Open:</label>
+        <label class="info-label-select" for="appPermitOpen">App Permit Open:</label>
         <div class="info-select">
             <select
                 class="input-value select-box" bind:value={applicationData.App_permit_Open}>
@@ -105,7 +112,7 @@
     </div>
 
     <div class="info-row">
-        <label class="info-label" for="appPermitTodo">App Permit ToDo:</label>
+        <label class="info-label-select" for="appPermitTodo">App Permit ToDo:</label>
         <div class="info-select">
             <select
                 class="input-value select-box" bind:value={applicationData.App_permit_toDoList}>
@@ -118,7 +125,7 @@
     </div>
 
     <div class="info-row">
-        <label class="info-label" for="appPermitDoing">App Permit Doing:</label>
+        <label class="info-label-select" for="appPermitDoing">App Permit Doing:</label>
         <div class="info-select">
             <select
                 class="input-value select-box" bind:value={applicationData.App_permit_Doing}>
@@ -131,7 +138,7 @@
     </div>
 
     <div class="info-row">
-        <label class="info-label" for="appPermitDone">App Permit Done:</label>
+        <label class="info-label-select" for="appPermitDone">App Permit Done:</label>
         <div class="info-select">
             <select
                 class="input-value select-box" bind:value={applicationData.App_permit_Done}>
@@ -142,7 +149,6 @@
             </select>
         </div>
     </div>
-</div>
 
 <style>
     * {
@@ -152,26 +158,43 @@
 	.form-container {
 		border-radius: 8px;
 		background: white;
+		width: 800px;
+		display: flex;
+		flex-direction: column;
 	}
+
+	.form-flex  {
+		display: flex;
+		flex-direction: row;
+	}
+
 	.info-row {
 		display: flex;
 		align-items: center;
 		margin-bottom: 10px;
+		flex: 1;
+		margin-right: 10px;
 	}
 
 	.info-label {
 		flex: 1;
 	}
 
+	.info-label-description {
+		flex: 0.38;
+	}
+
+	.info-label-select {
+		flex: 0.375;
+	}
+
 	.info-value {
 		flex: 2;
-		padding: 5px;
 		position: relative;
 	}
 
 	.description-input {
 		height: 80px;
-		font-size: 16px;
 		border: 1px solid #ccc;
 	}
 
@@ -183,8 +206,7 @@
 	input.info-value,
 	.info-select {
 		width: 100%;
-		padding: 8px;
-		font-size: 16px;
+		padding: 5px;
 		border: 1px solid #ccc;
 		box-sizing: border-box;
 	}

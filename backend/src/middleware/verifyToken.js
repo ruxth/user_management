@@ -136,4 +136,71 @@ exports.verifyTokenWithRoles = (groupname) => async (req, res, next) => {
   }
 };
 
+exports.verifyTokenWithPermit = () => async (req, res, next) => {
+  const token = req.cookies.token;
+
+  if (!token) {
+    res.clearCookie("token");
+    return res.status(403).send("Access denied");
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const currentIp = req.ip || req.connection.remoteAddress;
+    const currentBrowser = req.headers["user-agent"];
+    const username = decoded.id;
+
+    // Fetch user groups
+    const [groupRows] = await db.query(
+      "SELECT user_group FROM usergroup WHERE username = ?",
+      [username]
+    );
+    const userGroups = groupRows.map((row) => row.user_group);
+
+    // Get current state from the request
+    const { currentState, appAcronym } = req.body;
+
+    // console.log(currentState);
+    // console.log(userGroups);
+    // console.log(appAcronym);
+
+    const [appRows] = await db.query(
+      "SELECT App_permit_Create, App_permit_Open, App_permit_toDoList, App_permit_Doing, App_permit_Done FROM application WHERE App_Acronym = ?",
+      [appAcronym]
+    );
+
+    const appPermissions = appRows[0];
+    // Map current state to its corresponding permission column
+    const permissionMapping = {
+      Create: appPermissions.App_permit_Create,
+      Open: appPermissions.App_permit_Open,
+      ToDo: appPermissions.App_permit_toDoList,
+      Doing: appPermissions.App_permit_Doing,
+      Done: appPermissions.App_permit_Done,
+    };
+
+    const allowedGroup = permissionMapping[currentState];
+    const hasPermission = allowedGroup && userGroups.includes(allowedGroup);
+
+    // console.log(appRows);
+    // console.log(permissionMapping);
+    // console.log(hasPermission);
+
+    if (
+      decoded.ip == currentIp &&
+      decoded.browser == currentBrowser &&
+      hasPermission
+    ) {
+      next(); // User has permission
+    } else {
+      res.clearCookie("token");
+      return res.status(403).send("Access denied");
+    }
+  } catch (error) {
+    console.error("JWT Verification Error:", error);
+    res.clearCookie("token");
+    return res.status(403).send("Access denied");
+  }
+};
+
 exports.checkGroup = checkGroup;

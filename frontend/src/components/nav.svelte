@@ -9,13 +9,15 @@
     export let appAcronym = '';
     export let email = '';
     export let isAdmin = false;
+    export let showTMSPage = false; // Prop to track TMS visibility
+    export let toggleApplications; 
     let showPopup = false;
     let newEmail = '';
     let newPassword = '';    
 
     const togglePopup = () => {
         showPopup = !showPopup;
-    };    
+    };   
 
     const handleSave = () => {
         const profileData = { username: username, email: newEmail, password: newPassword };
@@ -36,19 +38,25 @@
     } catch (error) {
         console.error("Error during logout:", error);
     }
+
+    console.log('nav', toggleApplications);
+    
 };
 </script>
 
 <nav class="navbar">
     <div class="navbar-left">
         {#if appAcronym.length > 0}
-            <span>{appAcronym}</span>
+            <span><strong>Application:</strong> {appAcronym}</span>
         {:else}
             <span>{username}</span>
         {/if}
     </div>
     <div class="navbar-center">
-      <a href="/applications">Applications</a>
+      <a href="/applications" on:click={toggleApplications}>Applications</a>
+      {#if showTMSPage}
+            <a href="#" on:click={toggleApplications}>Back to Applications</a>
+        {/if}
       {#if isAdmin}
             <a href="/user_management">User Management</a>
         {/if}
@@ -67,10 +75,6 @@
                 <span class="info-label">Username:</span>
                 <span class="info-value">{username}</span>
               </div>
-            <!-- <div class="info-row">
-                <span class="info-label">Current email:</span>
-                <span class="info-value">{email}</span>
-              </div> -->
             <label>
                 <span class="info-label">New Email:</span>
                 <input class="info-value" type="email" bind:value={newEmail} placeholder="Email" />
@@ -133,6 +137,7 @@
     display: flex;
     justify-content: center;
     align-items: center;
+    z-index: 10;
 }
 
 .popup {

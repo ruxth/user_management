@@ -72,6 +72,10 @@
 		App_Acronym = Acronym;
 	}
 
+	function toggleApplications() {
+        showTMSPage = false; 
+    }
+
 	let isAdmin = false;
 	let isPL = false;
 	let currentUser = { username: '', email: '' };
@@ -134,8 +138,9 @@
 	};
 
 	const getAllApplications = async () => {
+		
 		try {
-			const response = await axios.get(`${apiUrl}/getAllApplications`, {
+			const response = await axios.get(`${apiUrl}/getAllApplications`,{
 				withCredentials: true,
 			})
 			applications = response.data.map(app => {
@@ -147,8 +152,13 @@
 				App_endDate: endDate.toISOString().slice(0, 10)
     		};
         });
-		}catch {
-			toast.error('Error fetching accounts:', error);
+		}catch (error) {
+			if (error.response && error.response.data) {
+				toast.error(error.response.data.message || 'An unknown error occurred.');
+				accessError(error);
+			}else {
+				toast.error('An unknown error occurred.')
+			}
 		}
 	}
 
@@ -177,7 +187,6 @@
 				toast.error('An unknown error occurred.')
 			}
 		}
-	
 	};
 
 	const handleEditApplication = async () => {
@@ -208,25 +217,28 @@
 	}
 </script>
 
-{#if showTMSPage}
-	<TMSpage {App_Acronym}/>
-{:else}
-
 <body>
 	<Nav
 		username={currentUser.username}
 		email={currentUser.email}
 		on:save={handleSaveProfile}
 		{isAdmin}
+		{showTMSPage}
+        toggleApplications={toggleApplications}
 	/>
+	{#if showTMSPage}
+		<TMSpage {App_Acronym}/>
+	{:else}
 	<div class="header">
 		<h1 class="welcome-title">Applications</h1>
-		<button class="action2-btn" on:click={openCreatePopup}>+ Create Application</button>
+		{#if isPL}
+			<button class="action2-btn" on:click={openCreatePopup}>+ Create Application</button>
+		{/if}
 	</div>
 
 	<div class="app-container"> 
 		{#each applications as app}
-			<div class="app" on:click={openTMSpage(app.App_Acronym)}>
+			<button class="app" on:click={openTMSpage(app.App_Acronym)}>
 					<p><strong>App Name:</strong> {app.App_Acronym}</p>
 					<p class="description-display"><strong>Description:</strong> {app.App_Description}</p>
 					<p><strong>Start Date:</strong> {app.App_startDate}</p>
@@ -239,7 +251,7 @@
 						<FontAwesomeIcon icon={faEdit}/>
 				</button>
 				{/if}
-			</div>
+			</button>
 			<Popup show={showEditPopup} onClose={closeEditPopup}>
 				<span slot="header">Edit Application</span>
 				<div slot="body">
@@ -262,8 +274,9 @@
 			<button class="action2-btn" on:click={handleAddApplication}>Add Application</button>
 		</div>
 	</Popup>
+	{/if}
 </body>
-{/if}
+
 
 <style>
 	* {
@@ -329,5 +342,9 @@
 		border: none;
 		cursor: pointer;
 		color: black;
+	}
+
+	p {
+		margin: 0px;
 	}
 </style>
