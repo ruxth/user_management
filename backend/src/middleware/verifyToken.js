@@ -23,7 +23,7 @@ async function checkGroup(username, groupNames) {
 }
 
 exports.verifyToken = catchAsyncErrors(async (req, res, next) => {
-  const token = req.cookies.token; // Get token from cookies
+  const token = req.cookies.token;
 
   if (!token) {
     return res.status(401).json({ message: "Access denied" });
@@ -157,12 +157,12 @@ exports.verifyTokenWithPermit = () => async (req, res, next) => {
     );
     const userGroups = groupRows.map((row) => row.user_group);
 
-    // Get current state from the request
-    const { currentState, appAcronym } = req.body;
+    const { Task_state, Task_app_Acronym } = req.body.updateTask;
+    const { appAcronym } = req.body;
 
-    // console.log(currentState);
+    // console.log(Task_state);
     // console.log(userGroups);
-    // console.log(appAcronym);
+    // console.log(Task_app_Acronym);
 
     const [appRows] = await db.query(
       "SELECT App_permit_Create, App_permit_Open, App_permit_toDoList, App_permit_Doing, App_permit_Done FROM application WHERE App_Acronym = ?",
@@ -179,7 +179,7 @@ exports.verifyTokenWithPermit = () => async (req, res, next) => {
       Done: appPermissions.App_permit_Done,
     };
 
-    const allowedGroup = permissionMapping[currentState];
+    const allowedGroup = permissionMapping[Task_state];
     const hasPermission = allowedGroup && userGroups.includes(allowedGroup);
 
     // console.log(appRows);

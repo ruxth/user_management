@@ -55,7 +55,7 @@
     <div class="navbar-center">
       <a href="/applications" on:click={toggleApplications}>Applications</a>
       {#if showTMSPage}
-            <a href="#" on:click={toggleApplications}>Back to Applications</a>
+            <a href="#" on:click={toggleApplications}>Task</a>
         {/if}
       {#if isAdmin}
             <a href="/user_management">User Management</a>

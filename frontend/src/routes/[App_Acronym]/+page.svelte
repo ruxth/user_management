@@ -34,6 +34,7 @@
 
     let activePopup = null;
     function openTaskPopup(taskID) {
+        selectedPlan = getPlanName(taskID); 
         activePopup = taskID;
         getPlans();
     }
@@ -88,9 +89,11 @@
             groupFlags.isPermitOpen = groups.includes(appData.App_permit_Open);
             groupFlags.isPermitToDo = groups.includes(appData.App_permit_toDoList);
             groupFlags.isPermitDoing = groups.includes(appData.App_permit_Doing);
-            groupFlags.isPermitDone = groups.includes(appData.App_permit_Done);                        
-
+            groupFlags.isPermitDone = groups.includes(appData.App_permit_Done);  
+                                    
             await getTasks();
+            await getPlans();
+            
         } catch (error) {
             if (error.response && error.response.data) {
 				toast.error(error.response.data.message || 'An unknown error occurred.');
@@ -108,6 +111,7 @@
         endDate: null,
         color: '#ff0000'
     };
+    let plans = [];
     let planList = [];
 
     const handleAddPlan = async () => {
@@ -120,7 +124,7 @@
             plan.endDate = Math.floor(endDate.getTime() / 1000)
             
             const response = await axios.post(`${apiUrl}/applications/createPlan`, {
-                plan
+                plan,
             }, {
                 withCredentials: true
             })
@@ -132,18 +136,20 @@
 				toast.error(error.response.data.message || 'An unknown error occurred.');
 				accessError(error);
 			}else {
-				toast.error('An unknown error occurred.')
+				toast.error('error adding plan An unknown error occurred.')
 			}
         }
     }
 
     const getPlans = async () => {
         try {
-            const response = await axios.get(`${apiUrl}/applications/getPlans`, {
+            const response = await axios.post(`${apiUrl}/applications/getPlans`,{
+                appAcronym: App_Acronym
+            }, {
                 withCredentials: true
             })
-            const plans = response.data
-            planList = plans.map((plan) => plan.Plan_MVP_name);              
+            plans = response.data            
+            planList = plans.map((plan) => plan.Plan_MVP_name);           
                       
         }catch (error) {
             if (error.response && error.response.data) {
@@ -154,6 +160,87 @@
 			}
         }
     }
+
+    const getPlanStartDate = (taskPlanName) => {
+        const plan = plans.find(p => p.Plan_MVP_name === taskPlanName);         
+        if (plan) {
+            // Assuming Plan_startDate and Plan_endDate are in seconds
+            const startDate = new Date(plan.Plan_startDate * 1000).toLocaleDateString();
+            const endDate = new Date(plan.Plan_endDate * 1000).toLocaleDateString();
+            
+            return { startDate, endDate };
+        } 
+        
+        return { startDate: 'Not available', endDate: 'Not available' };
+    };
+
+    const getTasks = async () => {
+        const appAcronym = appData.App_Acronym;
+        
+        try {
+            const response = await axios.post(`${apiUrl}/applications/getTasks`, {
+                appAcronym
+            }, {
+                withCredentials: true
+            });
+
+            taskList = response.data.map(task => {
+                task.Task_notes = task.Task_notes.map(note => {
+                    if (typeof note === 'string') {
+                        // Handle the string format
+                        const parts = note.split('\n');
+                        const [dateTimePart, ...taskNoteParts] = parts;
+                        const [dateTime, notedBy] = dateTimePart.split(', Noted By: ');
+                        let taskNote = taskNoteParts.join('\n').trim();
+                        if (taskNote.startsWith('Task Notes:')) {
+                            taskNote = taskNote.replace('Task Notes:', '').trim();
+                        }
+
+                        const [date, time, state] = dateTime.split(', ').map(part => part.split(': ')[1]);
+
+                        return {
+                            date: date || '',
+                            time: time || '',
+                            state: state || '',
+                            notedBy: notedBy || '',
+                            taskNote: taskNote || '',
+                        };
+                    } else if (typeof note === 'object') {
+                        return note;
+                    } else {
+                        console.warn('Unexpected note format:', note);
+                        return {
+                            date: '',
+                            time: '',
+                            state: '',
+                            notedBy: '',
+                            taskNote: ''
+                        };
+                    }
+                });
+                return task;
+        });
+
+        console.log('taskList', taskList);
+        
+        } catch (error) {
+            console.error('Error in getTasks:', error);
+            if (error.response && error.response.data) {
+                toast.error(error.response.data.message || 'An unknown error occurred.');
+                accessError(error);
+            } else {
+                toast.error('Get task an unknown error occurred.');
+            }
+        }
+    };
+
+    let selectedPlan = '';
+
+    const getPlanName = (taskID) => {
+        const task = taskList.find(t => t.Task_id === taskID);
+        selectedPlan = task ? task.Task_plan : ''; // Set selectedPlan based on the found task
+        return selectedPlan; // Optionally return it, though it's now stored in the variable
+    };
 
     let newTask = {
         taskID: null,
@@ -168,13 +255,35 @@
         taskNotes: [],
     }
 
+    const resetNewTask = () => {
+        newTask = {
+            taskID: null,
+            taskName: '',
+            appAcronym: null,
+            taskDescription: '',
+            planName: '',
+            taskState: '',
+            taskCreator: null,
+            taskOwner: null,
+            taskDate: null, 
+            taskNotes: [],
+        };
+        currentNote = ''; // Reset the note as well
+    };
+
     let currentNote = '';
     const formatTaskNote = (note, taskState, username) => {
-        const date = new Date().toLocaleDateString();
-        const time = new Date().toLocaleTimeString();
-        
-        return `Date: ${date}, Time: ${time}, Current State: ${taskState}, Noted By: ${username}\nTask Notes: ${note}`;
+    const date = new Date().toLocaleDateString();
+    const time = new Date().toLocaleTimeString();
+    
+    return {
+        date,
+        time,
+        state: taskState || "Unknown",
+        notedBy: username || "Unknown",
+        taskNote: note
     };
+};
 
     const handleAddTask = async () => {
         try {
@@ -183,7 +292,6 @@
             newTask.appAcronym = appData.App_Acronym;
             newTask.taskOwner = currentUser.username;
             newTask.taskCreator = currentUser.username;
-            newTask.taskID = `${appData.App_Acronym}_${appData.App_Rnumber}`;
             newTask.taskState = 'Open';
             if (currentNote.trim()) {
                 const formattedNote = formatTaskNote(currentNote.trim(), newTask.taskState, currentUser.username);
@@ -204,6 +312,7 @@
             })
             await getTasks();
             console.log(response.data);
+            resetNewTask();
             customSuccess('Task added successfully!')
             
         }catch (error) {
@@ -218,80 +327,29 @@
 
     let taskList = [];
 
-    const getTasks = async () => {
-    const appAcronym = appData.App_Acronym;
-    
-    try {
-        const response = await axios.post(`${apiUrl}/applications/getTasks`, {
-            appAcronym
-        }, {
-            withCredentials: true
-        });
-
-        taskList = response.data.map(task => {
-            task.Task_notes = task.Task_notes.map(note => {
-                // Check if the note is an object or a string
-                if (typeof note === 'string') {
-                    // Handle the string format
-                    const parts = note.split('\n');
-                    const [dateTimePart, ...taskNoteParts] = parts;
-                    const [dateTime, notedBy] = dateTimePart.split(', Noted By: ');
-                    let taskNote = taskNoteParts.join('\n').trim();
-                    if (taskNote.startsWith('Task Notes:')) {
-                        taskNote = taskNote.replace('Task Notes:', '').trim();
-                    }
-
-                    const [date, time, state] = dateTime.split(', ').map(part => part.split(': ')[1]);
-
-                    return {
-                        date: date || '',
-                        time: time || '',
-                        state: state || '',
-                        notedBy: notedBy || '',
-                        taskNote: taskNote || '',
-                    };
-                } else if (typeof note === 'object') {
-                    // Directly return the object if already in the correct format
-                    return note;
-                } else {
-                    // Handle any unexpected formats
-                    console.warn('Unexpected note format:', note);
-                    return {
-                        date: '',
-                        time: '',
-                        state: '',
-                        notedBy: '',
-                        taskNote: ''
-                    };
-                }
-            });
-            return task;
-        });
-
-        console.log('taskList', taskList);
-        
-    } catch (error) {
-        console.error('Error in getTasks:', error);
-        if (error.response && error.response.data) {
-            toast.error(error.response.data.message || 'An unknown error occurred.');
-            accessError(error);
-        } else {
-            toast.error('Get task an unknown error occurred.');
-        }
-    }
-};
-
-    const handleTaskAction = async (task, action) => {        
+    const handleTaskAction = async (task, action) => {   
+        if (currentNote.trim()) {
+                const formattedNote = formatTaskNote(currentNote.trim(), task.Task_state, currentUser.username);
+                task.Task_notes.push(formattedNote); 
+                currentNote = ''; 
+            }
+            const taskNotesJson = JSON.stringify(task.Task_notes);              
+            
         try {            
             const response = await axios.post(`${apiUrl}/applications/updateTask`, {
-                taskID: task.Task_id,
+                updateTask: {
+                    ...task,
+                    Task_owner: currentUser.username,
+                    Task_notes: taskNotesJson,
+                    Task_plan: selectedPlan
+                },
                 action: action,
-                currentState: task.Task_state,
-                appAcronym: appData.App_Acronym
+                appAcronym: App_Acronym
             }, {
                 withCredentials: true
             })
             await getTasks();
+            closeTaskPopup();
             customSuccess('Task updated successfully!')
         }catch (error) {
             console.error('Error in task action:', error);
@@ -311,13 +369,16 @@
             currentNote = ''; 
         }
             const taskNotesJson = JSON.stringify(task.Task_notes);
-        
+            console.log(taskNotesJson);
+
         try {
             const response = await axios.post(`${apiUrl}/applications/editTask`, {
-                task: {
+                updateTask: {
                     ...task,
-                    Task_notes: taskNotesJson 
-                }
+                    Task_notes: taskNotesJson,
+                    Task_plan: selectedPlan
+                },
+                appAcronym: App_Acronym
             }, {
                 withCredentials: true
             })
@@ -333,6 +394,7 @@
 			}
         }
     }
+    
 
 </script>
 
@@ -340,7 +402,7 @@
     <div class="header">
         <h1>Task Management Board</h1>
         {#if groupFlags.isPM}
-        <button class="action2-btn" on:click={openPlanPopup}>+ Create Plan</button>
+            <button class="action2-btn" on:click={openPlanPopup}>+ Create Plan</button>
         {/if}
     </div>
     <Popup show={showPlanPopup} onClose={closePlanPopup}>
@@ -391,7 +453,7 @@
     <div class="column">
         <div class="column-header">
             <h3>Open</h3>
-            {#if groupFlags.isPL || groupFlags.isPermitCreate}
+            {#if groupFlags.isPermitCreate}
             <button class="action2-btn" on:click={openCreateTaskPopup}>+ Create Task</button>
             {/if}
         </div>
@@ -510,12 +572,12 @@
                                         <span class="info-value description-input" id="taskDescription">
                                             {task.Task_description}</span>
                                     </div>
-                                    {#if groupFlags.isPM}
+                                    {#if groupFlags.isPermitOpen}
                                     <div class="info-row">
                                         <label class="info-label" for="planName">Plan Name:</label>
                                         <div class="info-select">
                                             <select
-                                                class="input-value select-box" bind:value={task.Task_plan}>
+                                                class="input-value select-box" bind:value={selectedPlan}>
                                                 <option value="" disabled selected>Select Group</option>
                                                 {#each planList as plan}
                                                     <option value={plan}>{plan}</option>
@@ -526,9 +588,19 @@
                                     {:else}
                                     <div class="info-row">
                                         <label class="info-label" for="taskPlan">Task Plan</label>
-                                        <span class="info-value" >{task.Task_plan}</span>
+                                        <span class="info-value" >{selectedPlan}</span>
                                     </div>
                                     {/if}
+                                    <!-- {#if task.Task_plan}
+                                        <div class="info-row">
+                                            <label class="info-label" for="planStartDate">Plan Start Date:</label>
+                                            <span class="info-value">{getPlanStartDate(task.Task_plan).startDate}</span>
+                                        </div>
+                                        <div class="info-row">
+                                            <label class="info-label" for="planEndDate">Plan End Date:</label>
+                                            <span class="info-value">{getPlanStartDate(task.Task_plan).endDate}</span>
+                                        </div>
+                                    {/if} -->
                                     <div class="info-row">
                                         <label class="info-label" for="taskState">Task State:</label>
                                         <span class="info-value">{task.Task_state}</span>
@@ -621,8 +693,18 @@
                                     </div>
                                     <div class="info-row">
                                         <label class="info-label" for="taskPlan">Task Plan</label>
-                                        <span class="info-value" >{task.Task_plan}</span>
+                                        <span class="info-value" >{selectedPlan}</span>
                                     </div>
+                                    <!-- {#if task.Task_plan}
+                                        <div class="info-row">
+                                            <label class="info-label" for="planStartDate">Plan Start Date:</label>
+                                            <span class="info-value">{getPlanStartDate(task.Task_plan).startDate}</span>
+                                        </div>
+                                        <div class="info-row">
+                                            <label class="info-label" for="planEndDate">Plan End Date:</label>
+                                            <span class="info-value">{getPlanStartDate(task.Task_plan).endDate}</span>
+                                        </div>
+                                    {/if} -->
                                     <div class="info-row">
                                         <label class="info-label" for="taskState">Task State:</label>
                                         <span class="info-value">{task.Task_state}</span>
@@ -686,11 +768,104 @@
         <h3>Doing</h3>
         {#each taskList as task}
             {#if task.Task_state === 'Doing'}
-            <button class="card" style="border-left: 4px solid {task.Plan_color}">
-                <p>{task.Task_id}</p>
-                <h4>{task.Task_name}</h4>
-                <span class="tag">{task.Task_owner}</span>
-            </button>
+                <button class="card" style="border-left: 4px solid {task.Plan_color}" on:click={openTaskPopup(task.Task_id)}>
+                    <p>{task.Task_id}</p>
+                    <h4>{task.Task_name}</h4>
+                    <span class="tag">{task.Task_owner}</span>
+                </button>
+                {#if activePopup === task.Task_id}
+                    <Popup show={activePopup !== null} onClose={closeTaskPopup}>
+                        <span slot="header">Task</span>
+                        <div slot="body">
+                            <div class="task-container">
+                                <div class="task-left">
+                                    <div class="info-row">
+                                        <label class="info-label" for="taskID">Task ID</label>
+                                        <span class="info-value" id="taskID">{task.Task_id}</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <label class="info-label" for="taskName">Task Name:</label>
+                                        <span class="info-value" id="taskName">{task.Task_name}</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <div class="info-label">
+                                            <label class="info-label" for="taskDescription">Task Description</label>
+                                            <br/>
+                                        </div>
+                                        <span class="info-value description-input" id="taskDescription">
+                                            {task.Task_description}</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <label class="info-label" for="taskPlan">Task Plan</label>
+                                        <span class="info-value" >{selectedPlan}</span>
+                                    </div>
+                                    <!-- {#if task.Task_plan}
+                                        <div class="info-row">
+                                            <label class="info-label" for="planStartDate">Plan Start Date:</label>
+                                            <span class="info-value">{getPlanStartDate(task.Task_plan).startDate}</span>
+                                        </div>
+                                        <div class="info-row">
+                                            <label class="info-label" for="planEndDate">Plan End Date:</label>
+                                            <span class="info-value">{getPlanStartDate(task.Task_plan).endDate}</span>
+                                        </div>
+                                    {/if} -->
+                                    <div class="info-row">
+                                        <label class="info-label" for="taskState">Task State:</label>
+                                        <span class="info-value">{task.Task_state}</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <label class="info-label" for="taskCreator">Task Creator:</label>
+                                        <span class="info-value">{task.Task_creator}</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <label class="info-label" for="taskOwner">Task Owner:</label>
+                                        <span class="info-value">{task.Task_owner}</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <label class="info-label" for="taskOwner">Task Create Date:</label>
+                                        <span class="info-value">{formatDate(task.Task_createDate)}</span>
+                                    </div>
+                                </div>
+                                <div class="task-right">
+                                    <div class="info-row">
+                                        <div class="info-label">
+                                            <label class="info-label" for="taskComment">Notes</label>
+                                            <br/>
+                                            <div class="info-value-notes">
+                                                <div class="notes-section-container">
+                                                    <ul class="notes-section">
+                                                        {#each task.Task_notes as note}
+                                                            <li class="notes-section">
+                                                                Creator: {note.notedBy} | Date: {note.date} | Time: {note.time} | Current State: {note.state}
+                                                                <br>
+                                                                <strong>Notes: </strong>{note.taskNote} 
+                                                            </li>
+                                                        {/each}
+                                                    </ul>
+                                                </div>
+                                                {#if groupFlags.isPermitToDo}
+                                                <textarea
+                                                    class="comments-input"
+                                                    id="taskComment"
+                                                    placeholder="Comments"
+                                                    bind:value={currentNote}
+                                                ></textarea>
+                                                {/if}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>                    
+                            </div>
+                        </div> 
+                        <div slot="buttons">
+                            {#if groupFlags.isPermitDoing}
+                            <button class="action3-btn" on:click={() => handleTaskAction(task, 'promote')}>To Review</button>
+                            <button class="action4-btn" on:click={() => handleTaskAction(task, 'demote')}>Forfeit Task</button>
+                            <button class="action2-btn" on:click={() => handleSave(task)}>Save Changes</button>
+                            {/if}
+                        </div>
+                    </Popup>
+                {/if}
             {/if}
         {/each}
     </div>
@@ -698,11 +873,125 @@
         <h3>Done</h3>
         {#each taskList as task}
             {#if task.Task_state === 'Done'}
-            <button class="card" style="border-left: 4px solid {task.Plan_color}">
-                <p>{task.Task_id}</p>
-                <h4>{task.Task_name}</h4>
-                <span class="tag">{task.Task_owner}</span>
-            </button>
+                <button class="card" style="border-left: 4px solid {task.Plan_color}" on:click={openTaskPopup(task.Task_id)}>
+                    <p>{task.Task_id}</p>
+                    <h4>{task.Task_name}</h4>
+                    <span class="tag">{task.Task_owner}</span>
+                </button>
+                {#if activePopup === task.Task_id}
+                    <Popup show={activePopup !== null} onClose={closeTaskPopup}>
+                        <span slot="header">Task</span>
+                        <div slot="body">
+                            <div class="task-container">
+                                <div class="task-left">
+                                    <div class="info-row">
+                                        <label class="info-label" for="taskID">Task ID</label>
+                                        <span class="info-value" id="taskID">{task.Task_id}</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <label class="info-label" for="taskName">Task Name:</label>
+                                        <span class="info-value" id="taskName">{task.Task_name}</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <div class="info-label">
+                                            <label class="info-label" for="taskDescription">Task Description</label>
+                                            <br/>
+                                        </div>
+                                        <span class="info-value description-input" id="taskDescription">
+                                            {task.Task_description}</span>
+                                    </div>
+                                    {#if groupFlags.isPermitDone}
+                                    <div class="info-row">
+                                        <label class="info-label" for="planName">Plan Name:</label>
+                                        <div class="info-select">
+                                            <select
+                                                class="input-value select-box" bind:value={selectedPlan}>
+                                                <option value="" disabled selected>Select Group</option>
+                                                {#each planList as plan}
+                                                    <option value={plan}>{plan}</option>
+                                                {/each}
+                                            </select>
+                                        </div>
+                                    </div>
+                                    {:else}
+                                    <div class="info-row">
+                                        <label class="info-label" for="taskPlan">Task Plan</label>
+                                        <span class="info-value" >{selectedPlan}</span>
+                                    </div>
+                                    {/if}
+                                    <!-- {#if task.Task_plan}
+                                        <div class="info-row">
+                                            <label class="info-label" for="planStartDate">Plan Start Date:</label>
+                                            <span class="info-value">{getPlanStartDate(task.Task_plan).startDate}</span>
+                                        </div>
+                                        <div class="info-row">
+                                            <label class="info-label" for="planEndDate">Plan End Date:</label>
+                                            <span class="info-value">{getPlanStartDate(task.Task_plan).endDate}</span>
+                                        </div>
+                                    {/if} -->
+                                    <div class="info-row">
+                                        <label class="info-label" for="taskState">Task State:</label>
+                                        <span class="info-value">{task.Task_state}</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <label class="info-label" for="taskCreator">Task Creator:</label>
+                                        <span class="info-value">{task.Task_creator}</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <label class="info-label" for="taskOwner">Task Owner:</label>
+                                        <span class="info-value">{task.Task_owner}</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <label class="info-label" for="taskOwner">Task Create Date:</label>
+                                        <span class="info-value">{formatDate(task.Task_createDate)}</span>
+                                    </div>
+                                </div>
+                                <div class="task-right">
+                                    <div class="info-row">
+                                        <div class="info-label">
+                                            <label class="info-label" for="taskComment">Notes</label>
+                                            <br/>
+                                            <div class="info-value-notes">
+                                                <div class="notes-section-container">
+                                                    <ul class="notes-section">
+                                                        {#each task.Task_notes as note}
+                                                            <li class="notes-section">
+                                                                Creator: {note.notedBy} | Date: {note.date} | Time: {note.time} | Current State: {note.state}
+                                                                <br>
+                                                                <strong>Notes: </strong>{note.taskNote} 
+                                                            </li>
+                                                        {/each}
+                                                    </ul>
+                                                </div>
+                                                {#if groupFlags.isPermitDone}
+                                                <textarea
+                                                    class="comments-input"
+                                                    id="taskComment"
+                                                    placeholder="Comments"
+                                                    bind:value={currentNote}
+                                                ></textarea>
+                                                {/if}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>                    
+                            </div>
+                        </div> 
+                        <div slot="buttons">
+                            {#if groupFlags.isPermitDone}
+                                {#if selectedPlan !== task.Task_plan}
+                                    <button class="action-btn-disabled" disabled >Approve Task</button>
+                                    <button class="action4-btn" on:click={() => handleTaskAction(task, 'demote')}>Reject Task</button>
+                                    <button class="action-btn-disabled" disabled >Save Changes</button>
+                                {:else}
+                                    <button class="action3-btn" on:click={() => handleTaskAction(task, 'promote')} >Approve Task</button>
+                                    <button class="action4-btn" on:click={() => handleTaskAction(task, 'demote')}>Reject Task</button>
+                                    <button class="action2-btn" on:click={() => handleSave(task)} >Save Changes</button>
+                                {/if}
+                            {/if}
+                        </div>
+                    </Popup>
+                {/if}
             {/if}
         {/each}
     </div>
@@ -710,11 +999,102 @@
         <h3>Closed</h3>
         {#each taskList as task}
             {#if task.Task_state === 'Closed'}
-            <button class="card" style="border-left: 4px solid {task.Plan_color}">
-                <p>{task.Task_id}</p>
-                <h4>{task.Task_name}</h4>
-                <span class="tag">{task.Task_owner}</span>
-            </button>
+                <button class="card" style="border-left: 4px solid {task.Plan_color}" on:click={openTaskPopup(task.Task_id)}>
+                    <p>{task.Task_id}</p>
+                    <h4>{task.Task_name}</h4>
+                    <span class="tag">{task.Task_owner}</span>
+                </button>
+                {#if activePopup === task.Task_id}
+                    <Popup show={activePopup !== null} onClose={closeTaskPopup}>
+                        <span slot="header">Task</span>
+                        <div slot="body">
+                            <div class="task-container">
+                                <div class="task-left">
+                                    <div class="info-row">
+                                        <label class="info-label" for="taskID">Task ID</label>
+                                        <span class="info-value" id="taskID">{task.Task_id}</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <label class="info-label" for="taskName">Task Name:</label>
+                                        <span class="info-value" id="taskName">{task.Task_name}</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <div class="info-label">
+                                            <label class="info-label" for="taskDescription">Task Description</label>
+                                            <br/>
+                                        </div>
+                                        <span class="info-value description-input" id="taskDescription">
+                                            {task.Task_description}</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <label class="info-label" for="taskPlan">Task Plan</label>
+                                        <span class="info-value" >{selectedPlan}</span>
+                                    </div>
+                                    {#if task.Task_plan}
+                                        <div class="info-row">
+                                            <label class="info-label" for="planStartDate">Plan Start Date:</label>
+                                            <span class="info-value">{getPlanStartDate(task.Task_plan).startDate}</span>
+                                        </div>
+                                        <div class="info-row">
+                                            <label class="info-label" for="planEndDate">Plan End Date:</label>
+                                            <span class="info-value">{getPlanStartDate(task.Task_plan).endDate}</span>
+                                        </div>
+                                    {/if}
+                                    <div class="info-row">
+                                        <label class="info-label" for="taskState">Task State:</label>
+                                        <span class="info-value">{task.Task_state}</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <label class="info-label" for="taskCreator">Task Creator:</label>
+                                        <span class="info-value">{task.Task_creator}</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <label class="info-label" for="taskOwner">Task Owner:</label>
+                                        <span class="info-value">{task.Task_owner}</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <label class="info-label" for="taskOwner">Task Create Date:</label>
+                                        <span class="info-value">{formatDate(task.Task_createDate)}</span>
+                                    </div>
+                                </div>
+                                <div class="task-right">
+                                    <div class="info-row">
+                                        <div class="info-label">
+                                            <label class="info-label" for="taskComment">Notes</label>
+                                            <br/>
+                                            <div class="info-value-notes">
+                                                <div class="notes-section-container">
+                                                    <ul class="notes-section">
+                                                        {#each task.Task_notes as note}
+                                                            <li class="notes-section">
+                                                                Creator: {note.notedBy} | Date: {note.date} | Time: {note.time} | Current State: {note.state}
+                                                                <br>
+                                                                <strong>Notes: </strong>{note.taskNote} 
+                                                            </li>
+                                                        {/each}
+                                                    </ul>
+                                                </div>
+                                                {#if groupFlags.isPermitToDo}
+                                                <textarea
+                                                    class="comments-input"
+                                                    id="taskComment"
+                                                    placeholder="Comments"
+                                                    bind:value={currentNote}
+                                                ></textarea>
+                                                {/if}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>                    
+                            </div>
+                        </div> 
+                        <div slot="buttons">
+                            {#if groupFlags.isPermitToDo}
+                            <button class="action2-btn" on:click={() => handleSave(task)}>Save Changes</button>
+                            {/if}
+                        </div>
+                    </Popup>
+                {/if}
             {/if}
         {/each}
     </div>
@@ -752,6 +1132,21 @@
         padding: 8px 12px;
         border: none;
         cursor: pointer;
+    }
+
+    .action4-btn {
+        background-color: rgb(182, 48, 48);
+        color: white;
+        padding: 8px 12px;
+        border: none;
+        cursor: pointer;
+    }
+
+    .action-btn-disabled {
+        background-color: rgb(128, 128, 128);
+        color: white;
+        padding: 8px 12px;
+        border: none;
     }
 
     .info-row {
@@ -818,7 +1213,7 @@
 
     .info-value-notes {
         width: 100%;
-        height: 400px;
+        height: 28rem;
 		margin: 5px;
 		display: flex;
         flex-direction: column;
@@ -841,8 +1236,7 @@
         overflow-wrap: break-word; /* Ensures proper word wrapping */
         white-space: normal;
         font-weight: 400;
-        margin-bottom: 10px;
-        border-bottom: 0.5px solid rgb(149, 149, 149);
+        margin-bottom: 15px;
     }
 
     .comments-input {

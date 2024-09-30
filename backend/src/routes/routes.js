@@ -51,7 +51,7 @@ router.post("/newApplication", verifyTokenWithRoles(["PL"]), addApplication);
 router.post("/editApplication", verifyTokenWithRoles(["PL"]), editApplication);
 router.post(
   "/applications/createPlan",
-  verifyTokenWithRoles(["PL"]),
+  verifyTokenWithRoles(["PM"]),
   createPlan
 );
 router.post(
@@ -59,11 +59,11 @@ router.post(
   verifyTokenWithRoles(["PL", "Admin"]),
   createTask
 );
-router.post("/applications/editTask", verifyToken, editTask);
+router.post("/applications/editTask", verifyTokenWithPermit(), editTask);
 router.post("/applications/updateTask", verifyTokenWithPermit(), updateTask);
 
 router.get("/getAllApplications", verifyToken, getAllApplications);
-router.get("/applications/getPlans", verifyToken, getPlans);
+router.post("/applications/getPlans", verifyToken, getPlans);
 router.post("/applications/getTasks", verifyToken, getTasks);
 
 module.exports = router;

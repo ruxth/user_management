@@ -154,7 +154,7 @@
         newUser
       }, {
         withCredentials: true
-      });
+      });      
 
       resetFields(); 
       customSuccess('User Added Successfully')  
@@ -192,7 +192,6 @@
 
     if (selectedGroup) {
       if (!editedUser.group.includes(selectedGroup)) {
-        // Append the selected group to editedUser.group
         editedUser.group = [...editedUser.group, selectedGroup];
       }
       event.target.value = '';
@@ -204,7 +203,7 @@
     if (newUser.group.length > 0) {
       newUser.group = newUser.group.filter(group => group !== index)
     } else {
-      editedUser.group = editedUser.group.filter(group => group !== index);
+      editedUser.group = editedUser.group.filter(group => group !== index);      
     }
   }
 
@@ -225,7 +224,6 @@
         accessError(error);
       }else {
         toast.error('An unknown error occurred.')
-        // goto('/login');
       }
     }
   }
