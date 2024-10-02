@@ -548,7 +548,17 @@ exports.updateTask = catchAsyncErrors(async (req, res) => {
 
     await connection.commit();
 
+    const emailQuery =
+      "SELECT accounts.email from accounts JOIN usergroup ON usergroup.username = accounts.username JOIN application ON usergroup.user_group = application.App_permit_Done WHERE App_Acronym = ?";
+    const [results] = await db.query(emailQuery, [Task_app_Acronym]);
+
+    const emails = results
+      .map((obj) => obj.email)
+      .filter((email) => email)
+      .join(", ");
+
     if (newState === "Done") {
+      //sendEmail(emails)g
       sendEmail();
     }
     res.status(200).json({ message: "Task updated successfully!", newState });
