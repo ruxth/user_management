@@ -4,6 +4,7 @@ const cors = require("cors");
 
 const db = require("./config/database");
 const authRoutes = require("./routes/routes");
+const demo = require("./routes/demo");
 
 const app = express();
 
@@ -20,5 +21,6 @@ app.use(
 );
 
 app.use("/api/", authRoutes);
+app.use("/api/demo/", demo);
 
 app.listen(3000);
